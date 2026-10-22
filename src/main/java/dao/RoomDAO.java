@@ -171,4 +171,76 @@ public Room getRoomByNumber(String roomNumber) throws SQLException {
 
     return null;
 }
+
+    
+    // Get rooms by ward name
+    public List<Room> getRoomsByWard(String wardName)
+            throws SQLException {
+
+        List<Room> rooms = new ArrayList<>();
+
+        String sql = "SELECT * FROM rooms WHERE ward_name = ? "
+                   + "ORDER BY bed_no";
+
+        try (Connection con = DBConnection.getInstance().getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+
+            ps.setString(1, wardName);
+
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    rooms.add(mapRoom(rs));
+                }
+            }
+        }
+
+        return rooms;
+    }
+
+    // Get available rooms in a particular ward
+    public List<Room> getAvailableRoomsByWard(String wardName)
+            throws SQLException {
+
+        List<Room> rooms = new ArrayList<>();
+
+        String sql = "SELECT * FROM rooms "
+                   + "WHERE ward_name = ? AND available = TRUE "
+                   + "ORDER BY bed_no";
+
+        try (Connection con = DBConnection.getInstance().getConnection();
+             PreparedStatement ps = con.prepareStatement(sql)) {
+
+            ps.setString(1, wardName);
+
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    rooms.add(mapRoom(rs));
+                }
+            }
+        }
+
+        return rooms;
+    }
+
+    // Get all ward names
+    public List<String> getAllWardNames() throws SQLException {
+
+        List<String> wards = new ArrayList<>();
+
+        String sql = "SELECT DISTINCT ward_name FROM rooms "
+                   + "WHERE ward_name IS NOT NULL "
+                   + "ORDER BY ward_name";
+
+        try (Connection con = DBConnection.getInstance().getConnection();
+             PreparedStatement ps = con.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+
+            while (rs.next()) {
+                wards.add(rs.getString("ward_name"));
+            }
+        }
+
+        return wards;
+    }
+
 }
