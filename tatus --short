@@ -1,0 +1,38 @@
+[1mdiff --cc src/main/java/model/Admission.java[m
+[1mindex 7efee40,e9f8e18..0000000[m
+[1m--- a/src/main/java/model/Admission.java[m
+[1m+++ b/src/main/java/model/Admission.java[m
+[36m@@@ -9,10 -10,11 +10,15 @@@[m [mpublic class Admission [m
+      private Doctor doctor;[m
+      private LocalDateTime admissionDate;[m
+      private LocalDateTime dischargeDate;[m
+[32m++<<<<<<< HEAD[m
+[32m +    private String wardName;[m
+[32m++=======[m
+[32m++>>>>>>> da0ab03160975dcafce3bc85717bfc9a39942578[m
+      private String roomNumber;[m
+[32m+     private String wardName;[m
+      private String status;[m
+  [m
+[32m+     // Existing constructor preserved[m
+      public Admission(String admissionId, Patient patient, Doctor doctor, String roomNumber) {[m
+          this.admissionId = admissionId;[m
+          this.patient = patient;[m
+[36m@@@ -70,14 -96,6 +100,17 @@@[m
+          this.wardName = wardName;[m
+      }[m
+  [m
+[32m++<<<<<<< HEAD[m
+[32m +    public LocalDateTime getDischargeDate() {[m
+[32m +        return dischargeDate;[m
+[32m +    }[m
+[32m +[m
+[32m +    public void setDischargeDate(LocalDateTime dischargeDate) {[m
+[32m +        this.dischargeDate = dischargeDate;[m
+[32m +    }[m
+[32m +[m
+[32m++=======[m
+[32m++>>>>>>> da0ab03160975dcafce3bc85717bfc9a39942578[m
+      public String getStatus() {[m
+          return status;[m
+      }[m

@@ -257,8 +257,20 @@ private void handleDashboardAction(String action) {
     }
 }
 
-    private void showMyAdmissions() {
+    
+private void showMyAdmissions() {
     try {
+        if (authenticatedPatient == null
+                || authenticatedPatient.getId() <= 0) {
+            JOptionPane.showMessageDialog(
+                    this,
+                    "Patient login details are missing. Please log in again.",
+                    "Login Required",
+                    JOptionPane.WARNING_MESSAGE
+            );
+            return;
+        }
+
         AdmissionService admissionService = new AdmissionService();
 
         List<Admission> admissions =
@@ -269,6 +281,8 @@ private void handleDashboardAction(String action) {
         String[] columns = {
                 "Admission ID",
                 "Doctor",
+                "Ward",
+                "Bed Number",
                 "Room Number",
                 "Admission Date",
                 "Status"
@@ -277,31 +291,51 @@ private void handleDashboardAction(String action) {
         DefaultTableModel tableModel =
                 new DefaultTableModel(columns, 0) {
                     @Override
-                    public boolean isCellEditable(int row, int column) {
+                    public boolean isCellEditable(
+                            int row, int column) {
                         return false;
                     }
                 };
 
         for (Admission admission : admissions) {
-            String doctorName =
-                    admission.getDoctor().getFirstname() + " "
-                    + admission.getDoctor().getLastname();
+            String doctorName = admission.getDoctor() == null
+                    ? "N/A"
+                    : admission.getDoctor().getFirstname()
+                      + " "
+                      + admission.getDoctor().getLastname();
+
+            String wardName = admission.getWardName() == null
+                    || admission.getWardName().isBlank()
+                    ? "N/A"
+                    : admission.getWardName();
+
+            String bedNumber = "N/A";
+
+            // Find the bed number using the room number.
+            try {
+                dao.RoomDAO roomDAO = new dao.RoomDAO();
+                model.Room room =
+                        roomDAO.getRoomByNumber(
+                                admission.getRoomNumber()
+                        );
+
+                if (room != null) {
+                    bedNumber = String.valueOf(room.getBedNo());
+                }
+            } catch (Exception ex) {
+                bedNumber = "N/A";
+            }
 
             tableModel.addRow(new Object[]{
                     admission.getAdmissionId(),
                     doctorName,
+                    wardName,
+                    bedNumber,
                     admission.getRoomNumber(),
                     admission.getAdmissionDate(),
                     admission.getStatus()
             });
         }
-
-        JTable table = new JTable(tableModel);
-        table.setRowHeight(25);
-        table.setAutoCreateRowSorter(true);
-
-        JScrollPane scrollPane = new JScrollPane(table);
-        scrollPane.setPreferredSize(new Dimension(750, 300));
 
         if (admissions.isEmpty()) {
             JOptionPane.showMessageDialog(
@@ -313,6 +347,13 @@ private void handleDashboardAction(String action) {
             return;
         }
 
+        JTable table = new JTable(tableModel);
+        table.setRowHeight(25);
+        table.setAutoCreateRowSorter(true);
+
+        JScrollPane scrollPane = new JScrollPane(table);
+        scrollPane.setPreferredSize(new Dimension(850, 300));
+
         JOptionPane.showMessageDialog(
                 this,
                 scrollPane,
@@ -323,12 +364,14 @@ private void handleDashboardAction(String action) {
     } catch (SQLException ex) {
         JOptionPane.showMessageDialog(
                 this,
-                "Could not load your admissions: " + ex.getMessage(),
+                "Could not load your admissions: "
+                        + ex.getMessage(),
                 "Database Error",
                 JOptionPane.ERROR_MESSAGE
         );
     }
 }
+
      
 
 
