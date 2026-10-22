@@ -8,6 +8,8 @@ public class Admission {
     private Patient patient;
     private Doctor doctor;
     private LocalDateTime admissionDate;
+    private LocalDateTime dischargeDate;
+    private String wardName;
     private String roomNumber;
     private String status;
 
@@ -58,6 +60,22 @@ public class Admission {
 
     public void setRoomNumber(String roomNumber) {
         this.roomNumber = roomNumber;
+    }
+
+    public String getWardName() {
+        return wardName;
+    }
+
+    public void setWardName(String wardName) {
+        this.wardName = wardName;
+    }
+
+    public LocalDateTime getDischargeDate() {
+        return dischargeDate;
+    }
+
+    public void setDischargeDate(LocalDateTime dischargeDate) {
+        this.dischargeDate = dischargeDate;
     }
 
     public String getStatus() {

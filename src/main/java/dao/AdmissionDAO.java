@@ -19,27 +19,54 @@ public class AdmissionDAO {
 
    
 public boolean addAdmission(Admission admission) throws SQLException {
-
+    String lockBedSql =
+            "SELECT room_id FROM rooms "
+            + "WHERE room_number = ? AND ward_name = ? FOR UPDATE";
+    String activeAdmissionSql =
+            "SELECT admission_id FROM admissions "
+            + "WHERE room_number = ? AND status = 'Active' "
+            + "LIMIT 1 FOR UPDATE";
     String reserveBedSql =
             "UPDATE rooms SET available = FALSE "
-            + "WHERE room_number = ? AND available = TRUE";
+            + "WHERE room_number = ? AND ward_name = ? AND available = TRUE";
 
     String insertAdmissionSql =
             "INSERT INTO admissions "
             + "(admission_id, patient_id, doctor_id, admission_date, "
-            + "room_number, status) VALUES (?, ?, ?, ?, ?, ?)";
+            + "room_number, status, discharge_date) "
+            + "VALUES (?, ?, ?, ?, ?, ?, NULL)";
 
     try (Connection con = DBConnection.getInstance().getConnection()) {
-
         boolean originalAutoCommit = con.getAutoCommit();
         con.setAutoCommit(false);
 
         try {
-            // Step 1: Reserve the bed only if it is available.
+            try (PreparedStatement ps = con.prepareStatement(lockBedSql)) {
+                ps.setString(1, admission.getRoomNumber());
+                ps.setString(2, admission.getWardName());
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (!rs.next()) {
+                        con.rollback();
+                        return false;
+                    }
+                }
+            }
+
+            try (PreparedStatement ps =
+                    con.prepareStatement(activeAdmissionSql)) {
+                ps.setString(1, admission.getRoomNumber());
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        con.rollback();
+                        return false;
+                    }
+                }
+            }
+
             try (PreparedStatement ps =
                     con.prepareStatement(reserveBedSql)) {
-
                 ps.setString(1, admission.getRoomNumber());
+                ps.setString(2, admission.getWardName());
 
                 if (ps.executeUpdate() == 0) {
                     con.rollback();
@@ -69,8 +96,12 @@ public boolean addAdmission(Admission admission) throws SQLException {
             con.commit();
             return true;
 
-        } catch (SQLException e) {
-            con.rollback();
+        } catch (SQLException | RuntimeException e) {
+            try {
+                con.rollback();
+            } catch (SQLException rollbackError) {
+                e.addSuppressed(rollbackError);
+            }
             throw e;
 
         } finally {
@@ -84,7 +115,9 @@ public boolean addAdmission(Admission admission) throws SQLException {
     // Get Admission by ID
     public Admission getAdmissionById(String admissionId)
             throws SQLException {
-        String sql = "SELECT * FROM admissions WHERE admission_id = ?";
+        String sql = "SELECT a.*, r.ward_name FROM admissions a "
+                + "JOIN rooms r ON a.room_number = r.room_number "
+                + "WHERE a.admission_id = ?";
 
         try (Connection con = DBConnection.getInstance().getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
@@ -104,7 +137,9 @@ public boolean addAdmission(Admission admission) throws SQLException {
     // Get All Admissions
     public List<Admission> getAllAdmissions() throws SQLException {
         List<Admission> admissions = new ArrayList<>();
-        String sql = "SELECT * FROM admissions";
+        String sql = "SELECT a.*, r.ward_name FROM admissions a "
+                + "JOIN rooms r ON a.room_number = r.room_number "
+                + "ORDER BY a.admission_date DESC";
 
         try (Connection con = DBConnection.getInstance().getConnection();
              PreparedStatement ps = con.prepareStatement(sql);
@@ -115,6 +150,23 @@ public boolean addAdmission(Admission admission) throws SQLException {
             }
         }
 
+        return admissions;
+    }
+
+    public List<Admission> getActiveAdmissions() throws SQLException {
+        List<Admission> admissions = new ArrayList<>();
+        String sql = "SELECT a.*, r.ward_name FROM admissions a "
+                + "JOIN rooms r ON a.room_number = r.room_number "
+                + "WHERE a.status = 'Active' "
+                + "ORDER BY a.admission_date DESC";
+
+        try (Connection con = DBConnection.getInstance().getConnection();
+             PreparedStatement ps = con.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                admissions.add(mapAdmission(rs));
+            }
+        }
         return admissions;
     }
 
@@ -157,7 +209,9 @@ public boolean dischargeAdmission(String admissionId)
 
     String releaseBedSql =
             "UPDATE rooms SET available = TRUE "
-            + "WHERE room_number = ?";
+            + "WHERE room_number = ? AND available = FALSE "
+            + "AND NOT EXISTS (SELECT 1 FROM admissions "
+            + "WHERE room_number = ? AND status = 'Active')";
 
     try (Connection con = DBConnection.getInstance().getConnection()) {
 
@@ -183,7 +237,7 @@ public boolean dischargeAdmission(String admissionId)
                 }
             }
 
-            // Step 2: Mark the patient as discharged.
+            // Step 2: Mark the patient as discharged within this transaction.
             try (PreparedStatement ps =
                     con.prepareStatement(dischargeSql)) {
 
@@ -200,6 +254,7 @@ public boolean dischargeAdmission(String admissionId)
                     con.prepareStatement(releaseBedSql)) {
 
                 ps.setString(1, roomNumber);
+                ps.setString(2, roomNumber);
 
                 if (ps.executeUpdate() == 0) {
                     con.rollback();
@@ -210,8 +265,12 @@ public boolean dischargeAdmission(String admissionId)
             con.commit();
             return true;
 
-        } catch (SQLException e) {
-            con.rollback();
+        } catch (SQLException | RuntimeException e) {
+            try {
+                con.rollback();
+            } catch (SQLException rollbackError) {
+                e.addSuppressed(rollbackError);
+            }
             throw e;
 
         } finally {
@@ -245,6 +304,12 @@ public boolean dischargeAdmission(String admissionId)
         }
 
         admission.setStatus(rs.getString("status"));
+        Timestamp dischargeTimestamp = rs.getTimestamp("discharge_date");
+        if (dischargeTimestamp != null) {
+            admission.setDischargeDate(
+                    dischargeTimestamp.toLocalDateTime());
+        }
+        admission.setWardName(rs.getString("ward_name"));
 
         return admission;
     }
@@ -255,7 +320,9 @@ public List<Admission> getAdmissionsByDoctorId(int doctorId)
 
     List<Admission> admissions = new ArrayList<>();
 
-    String sql = "SELECT * FROM admissions WHERE doctor_id = ?";
+    String sql = "SELECT a.*, r.ward_name FROM admissions a "
+            + "JOIN rooms r ON a.room_number = r.room_number "
+            + "WHERE a.doctor_id = ?";
 
     try (Connection con = DBConnection.getInstance().getConnection();
          PreparedStatement ps = con.prepareStatement(sql)) {
@@ -278,7 +345,9 @@ public List<Admission> getAdmissionsByPatientId(int patientId)
 
     List<Admission> admissions = new ArrayList<>();
 
-    String sql = "SELECT * FROM admissions WHERE patient_id = ?";
+    String sql = "SELECT a.*, r.ward_name FROM admissions a "
+            + "JOIN rooms r ON a.room_number = r.room_number "
+            + "WHERE a.patient_id = ?";
 
     try (Connection con = DBConnection.getInstance().getConnection();
          PreparedStatement ps = con.prepareStatement(sql)) {

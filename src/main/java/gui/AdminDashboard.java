@@ -426,14 +426,17 @@ public class AdminDashboard extends JFrame {
                 rows.add(new Object[]{
                         room.getRoomId(),
                         room.getRoomNumber(),
+                        room.getWardName(),
+                        room.getBedNo() > 0
+                                ? room.getBedNo() : room.getRoomNumber(),
                         room.getRoomType(),
                         room.getDailyCharge(),
                         room.isAvailable() ? "Available" : "Occupied"
                 });
             }
             showTable("Rooms",
-                    new String[]{"ID", "Room Number", "Type", "Daily Charge",
-                            "Availability"},
+                    new String[]{"ID", "Room Number", "Ward", "Bed",
+                            "Type", "Daily Charge", "Availability"},
                     rows, "Change Availability", (dialog, selectedRow) -> {
                         Room room = roomRecords.get(selectedRow);
                         boolean updated;
@@ -461,7 +464,8 @@ public class AdminDashboard extends JFrame {
 
     private void showAdmissions() {
         try {
-            List<Admission> admissions = admissionService.getAllAdmissions();
+            List<Admission> admissions =
+                    admissionService.getActiveAdmissions();
             List<Object[]> rows = new ArrayList<>();
             List<String> ids = new ArrayList<>();
             DateTimeFormatter dateFormat =
@@ -472,14 +476,15 @@ public class AdminDashboard extends JFrame {
                         admission.getAdmissionId(),
                         patientName(admission.getPatient()),
                         doctorName(admission.getDoctor()),
+                        admission.getWardName(),
                         admission.getRoomNumber(),
                         admission.getAdmissionDate().format(dateFormat),
                         admission.getStatus()
                 });
             }
             showTable("Admissions",
-                    new String[]{"Admission ID", "Patient", "Doctor", "Room",
-                            "Admitted", "Status"},
+                    new String[]{"Admission ID", "Patient", "Doctor", "Ward",
+                            "Bed / Room", "Admitted", "Status"},
                     rows, "Discharge Selected", (dialog, selectedRow) -> {
                         String admissionId = ids.get(selectedRow);
                         int confirm = JOptionPane.showConfirmDialog(

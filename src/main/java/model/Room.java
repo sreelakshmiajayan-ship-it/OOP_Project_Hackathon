@@ -5,6 +5,8 @@ public class Room {
     private int roomId;
     private String roomNumber;
     private String roomType;
+    private String wardName;
+    private int bedNo;
     private double dailyCharge;
     private boolean available;
 
@@ -20,6 +22,14 @@ public class Room {
         this.roomType = roomType;
         this.dailyCharge = dailyCharge;
         this.available = available;
+    }
+
+    public Room(int roomId, String roomNumber, String roomType,
+                String wardName, int bedNo, double dailyCharge,
+                boolean available) {
+        this(roomId, roomNumber, roomType, dailyCharge, available);
+        this.wardName = wardName;
+        this.bedNo = bedNo;
     }
 
     public int getRoomId() {
@@ -44,6 +54,22 @@ public class Room {
 
     public void setRoomType(String roomType) {
         this.roomType = roomType;
+    }
+
+    public String getWardName() {
+        return wardName;
+    }
+
+    public void setWardName(String wardName) {
+        this.wardName = wardName;
+    }
+
+    public int getBedNo() {
+        return bedNo;
+    }
+
+    public void setBedNo(int bedNo) {
+        this.bedNo = bedNo;
     }
 
     public double getDailyCharge() {

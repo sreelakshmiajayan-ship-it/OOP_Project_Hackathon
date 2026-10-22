@@ -17,7 +17,20 @@ public class AdmissionService {
     // Admit Patient and Allocate Room
     public boolean admitPatient(Admission admission)
             throws SQLException {
+        if (admission == null) {
+            throw new IllegalArgumentException(
+                    "Admission details cannot be null.");
+        }
+        Room room = roomDAO.getRoomByNumber(admission.getRoomNumber());
+        if (room == null) {
+            throw new IllegalArgumentException(
+                    "Selected bed does not exist.");
+        }
+        return admitPatient(admission, room.getWardName());
+    }
 
+    public boolean admitPatient(Admission admission, String wardName)
+            throws SQLException {
         if (admission == null) {
             throw new IllegalArgumentException(
                     "Admission details cannot be null.");
@@ -27,6 +40,11 @@ public class AdmissionService {
                 || admission.getDoctor() == null) {
             throw new IllegalArgumentException(
                     "Patient and doctor details are required.");
+        }
+        if (admission.getPatient().getId() <= 0
+                || admission.getDoctor().getId() <= 0) {
+            throw new IllegalArgumentException(
+                    "Select a valid registered patient and doctor.");
         }
 
         if (admission.getAdmissionId() == null
@@ -40,52 +58,41 @@ public class AdmissionService {
                     "Admission date is required.");
         }
 
+        if (wardName == null || wardName.trim().isEmpty()) {
+            throw new IllegalArgumentException(
+                    "Please select a ward.");
+        }
+
         if (admission.getRoomNumber() == null
                 || admission.getRoomNumber().trim().isEmpty()) {
             throw new IllegalArgumentException(
                     "Please select a room.");
         }
 
-        Room room = roomDAO.getRoomByNumber(
-                admission.getRoomNumber());
+        Room room = roomDAO.getRoomByNumber(admission.getRoomNumber());
 
         if (room == null) {
+            throw new IllegalArgumentException("Selected bed does not exist.");
+        }
+
+        if (!wardName.equals(room.getWardName())) {
             throw new IllegalArgumentException(
-                    "Selected room does not exist.");
+                    "Selected bed does not belong to the selected ward.");
         }
 
         if (!room.isAvailable()) {
             throw new IllegalArgumentException(
-                    "Selected room is already occupied.");
+                    "Selected bed is already occupied.");
         }
 
-        // Reserve the room before saving the admission.
-        // bookRoom() updates only rooms still marked available.
-        if (!roomDAO.bookRoom(room.getRoomId())) {
+        admission.setWardName(wardName);
+        admission.setStatus("Active");
+        if (!admissionDAO.addAdmission(admission)) {
             throw new IllegalArgumentException(
-                    "Room is no longer available. Please select another room.");
+                    "Bed is no longer available or does not belong to "
+                            + "the selected ward. Refresh and select another bed.");
         }
-
-        try {
-            admission.setStatus("Active");
-
-            if (admissionDAO.addAdmission(admission)) {
-                return true;
-            }
-
-            throw new SQLException(
-                    "Admission could not be saved.");
-        } catch (SQLException | RuntimeException e) {
-
-            // Compensate if saving the admission fails.
-            try {
-                roomDAO.releaseRoom(room.getRoomId());
-            } catch (SQLException rollbackError) {
-                e.addSuppressed(rollbackError);
-            }
-
-            throw e;
-        }
+        return true;
     }
 
     // Discharge Patient and Release Room
@@ -98,54 +105,22 @@ public class AdmissionService {
                     "Admission ID cannot be empty.");
         }
 
-        Admission admission =
-                admissionDAO.getAdmissionById(admissionId);
-
-        if (admission == null
-                || !"Active".equalsIgnoreCase(
-                        admission.getStatus())) {
+        if (!admissionDAO.dischargeAdmission(admissionId)) {
             throw new IllegalArgumentException(
-                    "Admission not found or patient is already discharged.");
+                    "Admission not found, already discharged, or its bed "
+                            + "could not be released.");
         }
-
-        Room room = roomDAO.getRoomByNumber(
-                admission.getRoomNumber());
-
-        if (room == null) {
-            throw new IllegalArgumentException(
-                    "Allocated room could not be found.");
-        }
-
-        // Release the room first.
-        if (!roomDAO.releaseRoom(room.getRoomId())) {
-            throw new IllegalArgumentException(
-                    "Could not release the allocated room.");
-        }
-
-        try {
-            if (admissionDAO.dischargeAdmission(admissionId)) {
-                return true;
-            }
-
-            throw new SQLException(
-                    "Could not discharge the patient.");
-        } catch (SQLException | RuntimeException e) {
-
-            // Re-book the room if discharge fails.
-            try {
-                roomDAO.bookRoom(room.getRoomId());
-            } catch (SQLException rollbackError) {
-                e.addSuppressed(rollbackError);
-            }
-
-            throw e;
-        }
+        return true;
     }
 
     // Get All Admissions (Admin)
     public List<Admission> getAllAdmissions()
             throws SQLException {
         return admissionDAO.getAllAdmissions();
+    }
+
+    public List<Admission> getActiveAdmissions() throws SQLException {
+        return admissionDAO.getActiveAdmissions();
     }
 
     // Get Admission by ID
