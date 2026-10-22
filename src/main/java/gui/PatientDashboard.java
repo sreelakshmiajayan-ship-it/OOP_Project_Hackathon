@@ -279,13 +279,14 @@ private void showMyAdmissions() {
                 );
 
         String[] columns = {
-                "Admission ID",
-                "Doctor",
-                "Ward",
-                "Bed Number",
-                "Room Number",
-                "Admission Date",
-                "Status"
+        "Admission ID",
+        "Doctor",
+        "Ward",
+        "Bed Number",
+        "Room Number",
+        "Admission Date",
+        "Discharge Date",
+        "Status"
         };
 
         DefaultTableModel tableModel =
@@ -326,15 +327,24 @@ private void showMyAdmissions() {
                 bedNumber = "N/A";
             }
 
-            tableModel.addRow(new Object[]{
-                    admission.getAdmissionId(),
-                    doctorName,
-                    wardName,
-                    bedNumber,
-                    admission.getRoomNumber(),
-                    admission.getAdmissionDate(),
-                    admission.getStatus()
-            });
+           String admissionDate = admission.getAdmissionDate() == null
+        ? "N/A"
+        : admission.getAdmissionDate().toString();
+
+String dischargeDate = admission.getDischargeDate() == null
+        ? "Not discharged"
+        : admission.getDischargeDate().toString();
+
+tableModel.addRow(new Object[]{
+        admission.getAdmissionId(),
+        doctorName,
+        wardName,
+        bedNumber,
+        admission.getRoomNumber(),
+        admissionDate,
+        dischargeDate,
+        admission.getStatus()
+});
         }
 
         if (admissions.isEmpty()) {

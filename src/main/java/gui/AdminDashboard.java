@@ -462,53 +462,95 @@ public class AdminDashboard extends JFrame {
         }
     }
 
-    private void showAdmissions() {
-        try {
-            List<Admission> admissions =
-                    admissionService.getActiveAdmissions();
-            List<Object[]> rows = new ArrayList<>();
-            List<String> ids = new ArrayList<>();
-            DateTimeFormatter dateFormat =
-                    DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
-            for (Admission admission : admissions) {
-                ids.add(admission.getAdmissionId());
-                rows.add(new Object[]{
-                        admission.getAdmissionId(),
-                        patientName(admission.getPatient()),
-                        doctorName(admission.getDoctor()),
-                        admission.getWardName(),
-                        admission.getRoomNumber(),
-                        admission.getAdmissionDate().format(dateFormat),
-                        admission.getStatus()
-                });
-            }
-            showTable("Admissions",
-                    new String[]{"Admission ID", "Patient", "Doctor", "Ward",
-                            "Bed / Room", "Admitted", "Status"},
-                    rows, "Discharge Selected", (dialog, selectedRow) -> {
-                        String admissionId = ids.get(selectedRow);
-                        int confirm = JOptionPane.showConfirmDialog(
-                                dialog,
-                                "Discharge admission " + admissionId + "?",
-                                "Confirm Discharge",
-                                JOptionPane.YES_NO_OPTION);
-                        if (confirm == JOptionPane.YES_OPTION) {
-                            try {
-                                admissionService.dischargePatient(admissionId);
-                                dialog.dispose();
-                                showAdmissions();
-                            } catch (SQLException ex) {
-                                showDatabaseError(
-                                        "Could not discharge the admission.", ex);
-                            } catch (IllegalArgumentException ex) {
-                                showOperationError(ex.getMessage());
-                            }
-                        }
-                    });
-        } catch (SQLException ex) {
-            showDatabaseError("Could not load admissions.", ex);
+    
+private void showAdmissions() {
+    try {
+        List<Admission> admissions =
+                admissionService.getAllAdmissions();
+
+        List<Object[]> rows = new ArrayList<>();
+
+        DateTimeFormatter dateFormat =
+                DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm");
+
+        for (Admission admission : admissions) {
+            String admissionDate =
+                    admission.getAdmissionDate() == null
+                            ? "N/A"
+                            : admission.getAdmissionDate()
+                                    .format(dateFormat);
+
+            String dischargeDate =
+                    admission.getDischargeDate() == null
+                            ? "Not discharged"
+                            : admission.getDischargeDate()
+                                    .format(dateFormat);
+
+            rows.add(new Object[]{
+                    admission.getAdmissionId(),
+                    patientName(admission.getPatient()),
+                    doctorName(admission.getDoctor()),
+                    admission.getWardName(),
+                    admission.getRoomNumber(),
+                    admissionDate,
+                    dischargeDate,
+                    admission.getStatus()
+            });
         }
+
+        showTable(
+                "Admissions",
+                new String[]{
+                        "Admission ID",
+                        "Patient",
+                        "Doctor",
+                        "Ward",
+                        "Bed / Room",
+                        "Admitted",
+                        "Discharge Date",
+                        "Status"
+                },
+                rows,
+                "Discharge Selected",
+                (dialog, selectedRow) -> {
+                    Admission admission = admissions.get(selectedRow);
+
+                    if (!"Active".equalsIgnoreCase(
+                            admission.getStatus())) {
+                        showOperationError(
+                                "This admission has already been discharged.");
+                        return;
+                    }
+
+                    int confirm = JOptionPane.showConfirmDialog(
+                            dialog,
+                            "Discharge admission "
+                                    + admission.getAdmissionId() + "?",
+                            "Confirm Discharge",
+                            JOptionPane.YES_NO_OPTION);
+
+                    if (confirm == JOptionPane.YES_OPTION) {
+                        try {
+                            admissionService.dischargePatient(
+                                    admission.getAdmissionId());
+
+                            dialog.dispose();
+                            showAdmissions();
+
+                        } catch (SQLException ex) {
+                            showDatabaseError(
+                                    "Could not discharge the admission.", ex);
+                        } catch (IllegalArgumentException ex) {
+                            showOperationError(ex.getMessage());
+                        }
+                    }
+                });
+
+    } catch (SQLException ex) {
+        showDatabaseError("Could not load admissions.", ex);
     }
+}
+
 
     private void showBills() {
         try {
