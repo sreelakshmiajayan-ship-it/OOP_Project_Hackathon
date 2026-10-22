@@ -1,3 +1,4 @@
+
 package model;
 
 public class Room {
@@ -10,13 +11,14 @@ public class Room {
     private double dailyCharge;
     private boolean available;
 
+    // Default constructor
     public Room() {
         this.available = true;
     }
 
+    // Existing constructor preserved
     public Room(int roomId, String roomNumber, String roomType,
                 double dailyCharge, boolean available) {
-
         this.roomId = roomId;
         this.roomNumber = roomNumber;
         this.roomType = roomType;
@@ -24,12 +26,25 @@ public class Room {
         this.available = available;
     }
 
+    // Constructor with ward and bed information
     public Room(int roomId, String roomNumber, String roomType,
                 String wardName, int bedNo, double dailyCharge,
                 boolean available) {
-        this(roomId, roomNumber, roomType, dailyCharge, available);
-        this.wardName = wardName;
+        this(roomId, roomNumber, roomType, wardName,
+             dailyCharge, available);
         this.bedNo = bedNo;
+    }
+
+    // Constructor with ward information but no explicit bed number
+    public Room(int roomId, String roomNumber, String roomType,
+                String wardName, double dailyCharge,
+                boolean available) {
+        this.roomId = roomId;
+        this.roomNumber = roomNumber;
+        this.roomType = roomType;
+        this.wardName = wardName;
+        this.dailyCharge = dailyCharge;
+        this.available = available;
     }
 
     public int getRoomId() {
@@ -88,6 +103,7 @@ public class Room {
         this.available = available;
     }
 
+    // Mark the room as occupied
     public void bookRoom() {
         if (available) {
             available = false;
@@ -97,6 +113,7 @@ public class Room {
         }
     }
 
+    // Release the room after discharge
     public void releaseRoom() {
         available = true;
         System.out.println("Room is now available.");
@@ -106,6 +123,9 @@ public class Room {
         System.out.println("Room ID: " + roomId);
         System.out.println("Room Number: " + roomNumber);
         System.out.println("Room Type: " + roomType);
+        System.out.println("Ward: "
+                + (wardName != null ? wardName : "Not specified"));
+        System.out.println("Bed Number: " + bedNo);
         System.out.println("Daily Charge: ₹" + dailyCharge);
         System.out.println("Available: " + (available ? "Yes" : "No"));
     }
